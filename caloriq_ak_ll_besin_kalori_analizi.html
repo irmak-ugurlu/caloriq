@@ -1,0 +1,2216 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Caloriq — Akıllı Besin & Kalori Analizi</title>
+  <!-- Google Fonts: Plus Jakarta Sans, Inter & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet" />
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            display: ['"Plus Jakarta Sans"', 'Inter', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+    body {
+      background: radial-gradient(circle at 12% 0%, rgba(16, 185, 129, 0.06), transparent 36%),
+                  radial-gradient(circle at 88% 4%, rgba(6, 182, 212, 0.07), transparent 38%),
+                  #F8FAFC;
+      color: #0f172a;
+      overflow-x: hidden;
+    }
+    h1, h2, h3, .font-brand {
+      font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    }
+    /* Donut grafik segment geçişleri */
+    .donut-segment {
+      transition: stroke-dasharray 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                  stroke-dashoffset 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                  stroke-width 0.22s ease,
+                  opacity 0.22s ease;
+      cursor: pointer;
+    }
+    .donut-segment:hover {
+      stroke-width: 14.5;
+    }
+    /* Modal giriş animasyonu */
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .modal-animate {
+      animation: modalFadeIn 0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    body {
+      background-color: #FAF9F6;
+      color: #1e293b;
+      overflow-x: hidden;
+    }
+    /* Donut grafik segment geçişleri */
+    .donut-segment {
+      transition: stroke-dasharray 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                  stroke-dashoffset 0.65s cubic-bezier(0.22, 1, 0.36, 1),
+                  stroke-width 0.2s ease,
+                  opacity 0.2s ease;
+      cursor: pointer;
+    }
+    .donut-segment:hover {
+      stroke-width: 15;
+    }
+    /* İlerleme çubuğu animasyonu */
+    .progress-fill {
+      transition: width 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    /* Özel ince scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-cyan-100 selection:text-slate-900">
+
+  <!-- Bildirim (Toast) Alanı -->
+  <div id="toastContainer" class="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- API Ayarları Modalı -->
+  <div
+    id="apiSettingsModal"
+    class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/50 backdrop-blur-sm"
+    onclick="handleModalBackdropClick(event)"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="apiModalTitle"
+  >
+    <div class="modal-animate bg-white/95 backdrop-blur-xl w-full max-w-lg rounded-3xl border border-slate-200/90 shadow-2xl overflow-hidden">
+      <!-- Modal Üst Başlık -->
+      <div class="px-6 py-5 bg-gradient-to-r from-slate-900 via-slate-900 to-indigo-950 text-white flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center text-slate-950 shadow-sm">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+            </svg>
+          </div>
+          <div>
+            <h3 id="apiModalTitle" class="text-base font-extrabold tracking-tight">CalorieNinjas API Ayarları</h3>
+            <p class="text-xs text-slate-300">Canlı REST API bağlantısı veya Akıllı Demo Modu yönetimi</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onclick="closeApiModal()"
+          class="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          aria-label="Modalı Kapat"
+        >
+          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+
+      <!-- Modal Gövde -->
+      <div class="p-6 space-y-5">
+        <!-- API Anahtarı Girişi -->
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <label for="apiKeyInput" class="text-xs font-bold text-slate-700">
+              API Anahtarı (<code class="text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-mono">X-Api-Key</code>)
+            </label>
+            <a
+              href="https://calorieninjas.com/api"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-xs font-semibold text-cyan-600 hover:text-cyan-700 inline-flex items-center gap-1 underline underline-offset-2"
+            >
+              Ücretsiz Anahtar Al
+              <svg class="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+          </div>
+          <div class="relative flex items-center">
+            <input
+              type="password"
+              id="apiKeyInput"
+              placeholder="CalorieNinjas X-Api-Key değerinizi yapıştırın..."
+              class="w-full pl-3.5 pr-11 py-2.5 text-sm bg-slate-50 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 font-mono transition-all"
+            />
+            <button
+              type="button"
+              onclick="toggleApiKeyVisibility()"
+              class="absolute right-2.5 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg"
+              title="Anahtarı Göster / Gizle"
+            >
+              <svg id="eyeIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Bağlantı Test Sonucu Kutusu -->
+        <div id="apiTestFeedback" class="hidden p-3 rounded-xl text-xs font-medium border"></div>
+
+        <!-- Anahtar İşlem Butonları -->
+        <div class="flex flex-wrap items-center gap-2.5">
+          <button
+            type="button"
+            onclick="saveApiKey()"
+            class="flex-1 min-w-[130px] px-4 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-emerald-500 to-cyan-600 hover:from-emerald-600 hover:to-cyan-700 transition-all shadow-sm"
+          >
+            Anahtarı Kaydet
+          </button>
+          <button
+            type="button"
+            id="testApiKeyBtn"
+            onclick="testApiKeyConnection()"
+            class="px-4 py-2.5 rounded-xl text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200/80 transition-colors"
+          >
+            Bağlantıyı Test Et
+          </button>
+          <button
+            type="button"
+            onclick="clearApiKey()"
+            class="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-slate-600 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 transition-colors"
+          >
+            Temizle
+          </button>
+        </div>
+
+        <!-- Akıllı Demo Modu Geçiş Kartı -->
+        <div class="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-2">
+              <span class="text-xs font-bold text-slate-800">Akıllı Demo Modu</span>
+              <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-cyan-50 text-cyan-700 border border-cyan-200/70">NLP Motoru</span>
+            </div>
+            <p class="text-[11px] text-slate-500 mt-0.5">API anahtarı olmadan 25+ besin ve ölçü birimini yerel olarak ayrıştırır.</p>
+          </div>
+          <button
+            type="button"
+            id="demoModeToggle"
+            role="switch"
+            aria-checked="true"
+            onclick="toggleDemoMode()"
+            class="relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent bg-emerald-500 transition-colors duration-200 ease-in-out focus:outline-none"
+          >
+            <span
+              id="demoModeKnob"
+              class="pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out translate-x-5"
+            ></span>
+          </button>
+        </div>
+
+        <p class="text-[11px] text-slate-500 flex items-start gap-2 leading-relaxed">
+          <svg class="w-4 h-4 text-cyan-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
+          <span>Gizlilik Notu: API anahtarınız hiçbir harici sunucuya iletilmez; yalnızca tarayıcınızın <code class="font-mono text-slate-700">localStorage</code> alanında saklanır.</span>
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Üst Gezinme Çubuğu (Top Navigation Bar) -->
+  <header class="sticky top-0 z-30 bg-white/85 backdrop-blur-md border-b border-slate-200/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="flex flex-wrap items-center justify-between gap-3 py-3.5">
+        <!-- Caloriq Marka Logosu & Alt Başlık Rozeti -->
+        <div class="flex items-center gap-3.5">
+          <!-- Özel Geometrik SVG Logo: Stilize "Q" + Akıllı Veri Düğümü & Yaprak Kıvılcımı -->
+          <div class="relative w-11 h-11 rounded-2xl bg-slate-900 flex items-center justify-center shadow-md shadow-cyan-500/10 ring-1 ring-slate-800 shrink-0">
+            <svg class="w-7 h-7" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="caloriqRingGrad" x1="4" y1="4" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#10B981" />
+                  <stop offset="55%" stop-color="#06B6D4" />
+                  <stop offset="100%" stop-color="#4F46E5" />
+                </linearGradient>
+                <linearGradient id="caloriqSparkGrad" x1="16" y1="8" x2="29" y2="28" gradientUnits="userSpaceOnUse">
+                  <stop offset="0%" stop-color="#34D399" />
+                  <stop offset="100%" stop-color="#22D3EE" />
+                </linearGradient>
+              </defs>
+              <!-- Dış Akıllı Gösterge / Q Halkası -->
+              <path
+                d="M27.8 22.8C29.2 20.5 30 17.8 30 15C30 8.37258 24.6274 3 18 3C11.3726 3 6 8.37258 6 15C6 21.6274 11.3726 27 18 27C20.2 27 22.25 26.4 24 25.35"
+                stroke="url(#caloriqRingGrad)"
+                stroke-width="3.2"
+                stroke-linecap="round"
+              />
+              <!-- Q Kuyruğu & Veri Düğümü -->
+              <path
+                d="M22.5 22.5L30.5 30.5"
+                stroke="url(#caloriqSparkGrad)"
+                stroke-width="3.2"
+                stroke-linecap="round"
+              />
+              <circle cx="30.5" cy="30.5" r="2.3" fill="#22D3EE" />
+              <!-- Merkez Yaprak / IQ Kıvılcımı -->
+              <path
+                d="M18 9.2C14.8 11.8 13.5 15.2 15.6 18.2C17.2 20.4 20.3 20.1 21.8 17.8C23.3 15.4 21.6 11.5 18 9.2Z"
+                fill="url(#caloriqSparkGrad)"
+              />
+              <circle cx="18" cy="15.2" r="1.4" fill="#0F172A" />
+            </svg>
+          </div>
+
+          <div>
+            <div class="flex items-center gap-2.5">
+              <h1 class="font-brand text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+                Calor<span class="bg-gradient-to-r from-emerald-500 via-cyan-500 to-indigo-600 bg-clip-text text-transparent">iq</span>
+              </h1>
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-gradient-to-r from-emerald-50 to-cyan-50 text-cyan-800 border border-cyan-200/80">
+                Akıllı Besin Analizi
+              </span>
+            </div>
+            <p class="text-xs text-slate-500 hidden sm:block">Doğal Dil Destekli Kalori, Makro &amp; Mikro Besin Zekâsı</p>
+          </div>
+        </div>
+
+        <!-- Sağ Kontrol Alanı: Durum Göstergesi & API Ayarları Modal Tetikleyici -->
+        <div class="flex items-center gap-2 sm:gap-3">
+          <!-- Aktif Mod Rozeti -->
+          <div id="modeBadge" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/80">
+            <span id="modeDot" class="w-2 h-2 rounded-full bg-cyan-500 animate-pulse"></span>
+            <span id="modeBadgeText">Akıllı Demo Modu</span>
+          </div>
+
+          <!-- Geliştirici Görünümü Hızlı Geçiş -->
+          <button
+            type="button"
+            onclick="toggleDevInspector(true)"
+            class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100/90 hover:bg-slate-200/80 transition-colors"
+            title="API İstek ve JSON Yanıt İnceleyici"
+          >
+            <svg class="w-4 h-4 text-indigo-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+              <polyline points="16 18 22 12 16 6"></polyline>
+              <polyline points="8 6 2 12 8 18"></polyline>
+            </svg>
+            <span class="hidden md:inline">API İnceleyici</span>
+          </button>
+
+          <!-- API Ayarları Modal Butonu -->
+          <button
+            type="button"
+            onclick="openApiModal()"
+            class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-slate-900 hover:bg-indigo-950 transition-all shadow-sm"
+          >
+            <svg class="w-4 h-4 text-cyan-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+            </svg>
+            <span>API Ayarları</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Ana İçerik Alanı -->
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
+
+    <!-- Üst Izgara: Öğün Arama & Günlük Beslenme Takibi -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+
+      <!-- Sol Kolon (7/12): Doğal Dil Öğün Arama + Analiz Sonuçları -->
+      <div class="lg:col-span-7 space-y-6">
+
+        <!-- Öğün Arama Kartı -->
+        <section class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+            <div>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Doğal Dil Öğün Analizi</h2>
+              <p class="text-xs sm:text-sm text-slate-500">Yediğiniz besinleri porsiyon veya gramajlarıyla yazın; Caloriq tüm makroları anında çözümlesin.</p>
+            </div>
+          </div>
+
+          <!-- Bilgi Notu (NLP İpucu) -->
+          <div class="mb-4 p-3 rounded-xl bg-gradient-to-r from-emerald-50/80 via-cyan-50/70 to-indigo-50/60 border border-cyan-200/70 flex items-start gap-2.5">
+            <svg class="w-4 h-4 text-cyan-600 mt-0.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <p class="text-xs text-slate-700 leading-relaxed">
+              <strong class="text-slate-900">Akıllı NLP İpucu:</strong> CalorieNinjas doğal dil motoru en yüksek doğruluğu <strong>İngilizce besin adları ve miktarlarıyla</strong> sunar.
+              Örnek: <code class="bg-white/90 px-1.5 py-0.5 rounded border border-cyan-200 font-mono text-[11px] text-indigo-700">2 eggs, 1 slice whole wheat toast and half an avocado</code>
+            </p>
+          </div>
+
+          <!-- Arama Formu -->
+          <form id="nutritionSearchForm" onsubmit="handleSearchSubmit(event)" class="space-y-3.5">
+            <div class="relative">
+              <textarea
+                id="mealQueryInput"
+                rows="2"
+                placeholder="Örn: 2 eggs, 1 slice whole wheat toast and half an avocado"
+                class="w-full px-4 py-3 text-sm sm:text-base bg-slate-50/80 border border-slate-300 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500 transition-all resize-none"
+              >2 eggs, 1 slice whole wheat toast and half an avocado</textarea>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-between gap-3">
+              <!-- Hızlı Hazır Öğün Butonları -->
+              <div class="flex flex-wrap items-center gap-1.5">
+                <span class="text-xs font-semibold text-slate-400 mr-1">Hızlı Öğün:</span>
+                <button
+                  type="button"
+                  onclick="applyPreset('2 eggs, 1 slice whole wheat toast and half an avocado')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-transparent hover:border-emerald-200 transition-all"
+                >
+                  Kahvaltı
+                </button>
+                <button
+                  type="button"
+                  onclick="applyPreset('200g chicken breast, 150g white rice and 100g steamed broccoli')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-cyan-50 text-slate-700 hover:text-cyan-700 border border-transparent hover:border-cyan-200 transition-all"
+                >
+                  Sporcu Öğünü
+                </button>
+                <button
+                  type="button"
+                  onclick="applyPreset('150g greek yogurt, 1 medium banana and 20g almonds')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-transparent hover:border-indigo-200 transition-all"
+                >
+                  Ara Öğün
+                </button>
+                <button
+                  type="button"
+                  onclick="applyPreset('180g grilled salmon, 150g baked potato and 1 tbsp olive oil')"
+                  class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 border border-transparent hover:border-emerald-200 transition-all"
+                >
+                  Akşam Yemeği
+                </button>
+              </div>
+
+              <!-- Analiz Et Butonu -->
+              <button
+                type="submit"
+                id="analyzeBtn"
+                class="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-emerald-500 via-cyan-600 to-indigo-600 hover:from-emerald-600 hover:via-cyan-700 hover:to-indigo-700 active:scale-[0.99] transition-all shadow-sm shadow-cyan-200 disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                <svg id="searchIcon" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3">
+                  <circle cx="11" cy="11" r="8"></circle>
+                  <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <svg id="loadingSpinner" class="hidden w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                </svg>
+                <span id="analyzeBtnText">Analiz Et</span>
+              </button>
+            </div>
+          </form>
+
+          <!-- Hata Mesajı Alanı -->
+          <div id="errorAlert" class="hidden mt-4 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-3">
+            <svg class="w-5 h-5 text-rose-600 shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <div class="flex-1">
+              <p id="errorTitle" class="font-bold">Analiz Sırasında Bir Hata Oluştu</p>
+              <p id="errorMessage" class="mt-0.5 text-rose-700"></p>
+              <button
+                type="button"
+                id="fallbackDemoBtn"
+                onclick="switchToDemoAndRetry()"
+                class="hidden mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-rose-600 text-white hover:bg-rose-700 transition-colors"
+              >
+                Akıllı Demo Modu ile Analiz Et
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <!-- Analiz Sonuçları ve Görselleştirme Bölümü -->
+        <section id="resultsSection" class="space-y-6">
+          <!-- KPI Özeti + Donut Grafik Kartı -->
+          <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+            <div class="flex flex-wrap items-center justify-between gap-3 pb-4 mb-5 border-b border-slate-100">
+              <div>
+                <div class="flex items-center gap-2">
+                  <h3 class="text-base sm:text-lg font-extrabold text-slate-900">Besin Analiz Özeti</h3>
+                  <span id="analyzedItemCountBadge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/70">0 besin</span>
+                </div>
+                <p id="analyzedQueryLabel" class="text-xs text-slate-500 mt-0.5 truncate max-w-md">—</p>
+              </div>
+
+              <button
+                type="button"
+                id="addAllToLogBtn"
+                onclick="addEntireMealToLog()"
+                class="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white bg-slate-900 hover:bg-emerald-600 transition-colors shadow-sm"
+              >
+                <span>+ Günlük Takibe Ekle</span>
+              </button>
+            </div>
+
+            <!-- 4 Ana Makro KPI Kartı -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+              <!-- Toplam Kalori -->
+              <div class="p-3.5 rounded-2xl bg-gradient-to-br from-emerald-50 via-cyan-50/70 to-indigo-50/50 border border-cyan-200/70">
+                <span class="text-xs font-bold text-slate-700 block">Toplam Kalori</span>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="kpiCalories" class="font-brand text-2xl font-extrabold text-slate-900">0</span>
+                  <span class="text-xs font-bold text-cyan-700">kcal</span>
+                </div>
+              </div>
+
+              <!-- Protein -->
+              <div class="p-3.5 rounded-2xl bg-indigo-50/60 border border-indigo-200/70">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-indigo-900">Protein</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
+                </div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="kpiProtein" class="font-brand text-2xl font-extrabold text-slate-900">0</span>
+                  <span class="text-xs font-bold text-indigo-700">g</span>
+                </div>
+              </div>
+
+              <!-- Karbonhidrat -->
+              <div class="p-3.5 rounded-2xl bg-emerald-50/60 border border-emerald-200/70">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-emerald-900">Karbonhidrat</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                </div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="kpiCarbs" class="font-brand text-2xl font-extrabold text-slate-900">0</span>
+                  <span class="text-xs font-bold text-emerald-700">g</span>
+                </div>
+              </div>
+
+              <!-- Yağ -->
+              <div class="p-3.5 rounded-2xl bg-cyan-50/60 border border-cyan-200/70">
+                <div class="flex items-center justify-between">
+                  <span class="text-xs font-bold text-cyan-900">Yağ</span>
+                  <span class="w-2.5 h-2.5 rounded-full bg-cyan-500"></span>
+                </div>
+                <div class="mt-1 flex items-baseline gap-1">
+                  <span id="kpiFat" class="font-brand text-2xl font-extrabold text-slate-900">0</span>
+                  <span class="text-xs font-bold text-cyan-700">g</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- İkincil Besin Değerleri (6 Metrik) -->
+            <div class="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-6">
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Porsiyon</span>
+                <span id="metaServing" class="text-xs sm:text-sm font-bold text-slate-800">0 g</span>
+              </div>
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Lif</span>
+                <span id="metaFiber" class="text-xs sm:text-sm font-bold text-slate-800">0 g</span>
+              </div>
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Şeker</span>
+                <span id="metaSugar" class="text-xs sm:text-sm font-bold text-slate-800">0 g</span>
+              </div>
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Sodyum</span>
+                <span id="metaSodium" class="text-xs sm:text-sm font-bold text-slate-800">0 mg</span>
+              </div>
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Potasyum</span>
+                <span id="metaPotassium" class="text-xs sm:text-sm font-bold text-slate-800">0 mg</span>
+              </div>
+              <div class="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200/70 text-center">
+                <span class="block text-[11px] text-slate-500">Kolesterol</span>
+                <span id="metaCholesterol" class="text-xs sm:text-sm font-bold text-slate-800">0 mg</span>
+              </div>
+            </div>
+
+            <!-- Etkileşimli SVG Donut Grafik (Makro Kalori Dağılımı) -->
+            <div class="bg-slate-50/80 rounded-2xl p-4 sm:p-5 border border-slate-200/70">
+              <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                <h4 class="text-xs font-extrabold uppercase tracking-wider text-slate-600">Makro Kalori Dağılımı (%)</h4>
+                <span class="text-[11px] font-medium text-slate-500">Protein 4 • Karbonhidrat 4 • Yağ 9 kcal/g</span>
+              </div>
+
+              <div class="flex flex-col sm:flex-row items-center gap-6">
+                <!-- SVG Donut -->
+                <div class="relative w-44 h-44 shrink-0 flex items-center justify-center">
+                  <svg class="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                    <!-- Arka Plan Halkası -->
+                    <circle cx="50" cy="50" r="38" fill="transparent" stroke="#e2e8f0" stroke-width="12" />
+                    <!-- Protein Segmenti (Çivit / Indigo) -->
+                    <circle
+                      id="donutProtein"
+                      class="donut-segment"
+                      cx="50"
+                      cy="50"
+                      r="38"
+                      fill="transparent"
+                      stroke="#4f46e5"
+                      stroke-width="12"
+                      stroke-dasharray="0 238.76"
+                      stroke-dashoffset="0"
+                      onmouseenter="highlightMacro('Protein')"
+                      onmouseleave="resetMacroHighlight()"
+                    />
+                    <!-- Karbonhidrat Segmenti (Zümrüt Yeşili / Emerald) -->
+                    <circle
+                      id="donutCarbs"
+                      class="donut-segment"
+                      cx="50"
+                      cy="50"
+                      r="38"
+                      fill="transparent"
+                      stroke="#10b981"
+                      stroke-width="12"
+                      stroke-dasharray="0 238.76"
+                      stroke-dashoffset="0"
+                      onmouseenter="highlightMacro('Karbonhidrat')"
+                      onmouseleave="resetMacroHighlight()"
+                    />
+                    <!-- Yağ Segmenti (Camgöbeği / Cyan) -->
+                    <circle
+                      id="donutFat"
+                      class="donut-segment"
+                      cx="50"
+                      cy="50"
+                      r="38"
+                      fill="transparent"
+                      stroke="#06b6d4"
+                      stroke-width="12"
+                      stroke-dasharray="0 238.76"
+                      stroke-dashoffset="0"
+                      onmouseenter="highlightMacro('Yağ')"
+                      onmouseleave="resetMacroHighlight()"
+                    />
+                  </svg>
+                  <!-- Orta Dinamik Gösterge -->
+                  <div class="absolute inset-0 flex flex-col items-center justify-center text-center pointer-events-none px-4">
+                    <span id="donutCenterTitle" class="text-[11px] font-bold text-slate-400">Makro Kalori</span>
+                    <span id="donutCenterValue" class="font-brand text-lg font-extrabold text-slate-900">0 kcal</span>
+                    <span id="donutCenterSub" class="text-[10px] font-semibold text-cyan-700 mt-0.5">Toplam Enerji</span>
+                  </div>
+                </div>
+
+                <!-- Açıklama (Legend) -->
+                <div class="flex-1 w-full space-y-2.5">
+                  <!-- Protein Satırı -->
+                  <div
+                    id="legendProtein"
+                    onmouseenter="highlightMacro('Protein')"
+                    onmouseleave="resetMacroHighlight()"
+                    class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/70 hover:border-indigo-300 transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-2.5">
+                      <span class="w-3 h-3 rounded-full bg-indigo-600"></span>
+                      <div>
+                        <span class="text-xs font-bold text-slate-800 block">Protein</span>
+                        <span id="legendProteinDetail" class="text-[11px] text-slate-500">0g • 0 kcal</span>
+                      </div>
+                    </div>
+                    <span id="legendProteinPct" class="font-brand text-sm font-extrabold text-indigo-600">%0</span>
+                  </div>
+
+                  <!-- Karbonhidrat Satırı -->
+                  <div
+                    id="legendCarbs"
+                    onmouseenter="highlightMacro('Karbonhidrat')"
+                    onmouseleave="resetMacroHighlight()"
+                    class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/70 hover:border-emerald-300 transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-2.5">
+                      <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                      <div>
+                        <span class="text-xs font-bold text-slate-800 block">Karbonhidrat</span>
+                        <span id="legendCarbsDetail" class="text-[11px] text-slate-500">0g • 0 kcal</span>
+                      </div>
+                    </div>
+                    <span id="legendCarbsPct" class="font-brand text-sm font-extrabold text-emerald-600">%0</span>
+                  </div>
+
+                  <!-- Yağ Satırı -->
+                  <div
+                    id="legendFat"
+                    onmouseenter="highlightMacro('Yağ')"
+                    onmouseleave="resetMacroHighlight()"
+                    class="flex items-center justify-between p-2.5 rounded-xl bg-white border border-slate-200/70 hover:border-cyan-300 transition-colors cursor-pointer"
+                  >
+                    <div class="flex items-center gap-2.5">
+                      <span class="w-3 h-3 rounded-full bg-cyan-500"></span>
+                      <div>
+                        <span class="text-xs font-bold text-slate-800 block">Yağ</span>
+                        <span id="legendFatDetail" class="text-[11px] text-slate-500">0g • 0 kcal</span>
+                      </div>
+                    </div>
+                    <span id="legendFatPct" class="font-brand text-sm font-extrabold text-cyan-600">%0</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Detaylı Besin Öğeleri Dökümü -->
+          <div class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h3 class="text-base font-extrabold text-slate-900">Besin Öğeleri Detay Dökümü</h3>
+                <p class="text-xs text-slate-500">Ayrıştırılan her besin için porsiyon gramajı, makro ve mikro değerler</p>
+              </div>
+            </div>
+
+            <div id="foodBreakdownList" class="space-y-3">
+              <!-- Dinamik olarak doldurulacak -->
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <!-- Sağ Kolon (5/12): Günlük Beslenme Takibi -->
+      <aside class="lg:col-span-5 space-y-6 lg:sticky lg:top-24">
+        <section class="bg-white/90 backdrop-blur-sm rounded-2xl border border-slate-200/80 shadow-sm p-5 sm:p-6">
+          <!-- Başlık & Kalori Hedefi Düzenleme -->
+          <div class="flex items-start justify-between gap-2 pb-4 mb-5 border-b border-slate-100">
+            <div>
+              <h2 class="text-base sm:text-lg font-extrabold text-slate-900">Günlük Beslenme Takibi</h2>
+              <p class="text-xs text-slate-500">Bugünkü öğünleriniz ve hedef ilerlemeniz</p>
+            </div>
+
+            <!-- Hedef Düzenleme Alanı -->
+            <div class="text-right">
+              <div id="goalDisplayBox" class="flex items-center gap-1.5 justify-end">
+                <span class="text-xs text-slate-500">Hedef:</span>
+                <span id="dailyGoalDisplay" class="font-brand text-sm font-extrabold text-cyan-700">2200 kcal</span>
+                <button
+                  type="button"
+                  onclick="openGoalEditor()"
+                  class="p-1 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+                  title="Günlük Kalori Hedefini Düzenle"
+                >
+                  <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                  </svg>
+                </button>
+              </div>
+
+              <!-- Satır İçi Hedef Düzenleyici -->
+              <div id="goalEditBox" class="hidden flex items-center gap-1.5 mt-1">
+                <input
+                  type="number"
+                  id="dailyGoalInput"
+                  min="500"
+                  max="12000"
+                  step="50"
+                  class="w-24 px-2.5 py-1 text-xs font-bold border border-cyan-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500/30"
+                />
+                <button
+                  type="button"
+                  onclick="saveDailyGoal()"
+                  class="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-600 text-white hover:bg-cyan-700"
+                >
+                  Kaydet
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- İlerleme Çubukları -->
+          <div class="space-y-4 mb-6">
+            <!-- Ana Kalori Çubuğu -->
+            <div class="p-3.5 rounded-2xl bg-gradient-to-br from-slate-50 to-cyan-50/40 border border-slate-200/80">
+              <div class="flex items-center justify-between text-xs mb-1.5">
+                <span class="font-bold text-slate-800">Kalori İlerlemesi</span>
+                <span id="dailyCalorieFraction" class="font-brand font-extrabold text-slate-900">0 / 2200 kcal</span>
+              </div>
+              <div class="w-full h-3 bg-slate-200/80 rounded-full overflow-hidden">
+                <div id="calorieProgressBar" class="progress-fill h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full" style="width: 0%"></div>
+              </div>
+              <div class="flex items-center justify-between mt-1.5 text-[11px] text-slate-500">
+                <span id="caloriePercentText">%0 tamamlandı</span>
+                <span id="calorieRemainingText">2200 kcal kaldı</span>
+              </div>
+            </div>
+
+            <!-- 3 Makro İlerleme Çubuğu -->
+            <div class="grid grid-cols-1 gap-3">
+              <!-- Protein -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="font-semibold text-slate-700">Protein (%25)</span>
+                  <span id="dailyProteinText" class="font-bold text-indigo-700">0g / 138g</span>
+                </div>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="proteinProgressBar" class="progress-fill h-full bg-indigo-500 rounded-full" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <!-- Karbonhidrat -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="font-semibold text-slate-700">Karbonhidrat (%45)</span>
+                  <span id="dailyCarbsText" class="font-bold text-emerald-700">0g / 248g</span>
+                </div>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="carbsProgressBar" class="progress-fill h-full bg-emerald-500 rounded-full" style="width: 0%"></div>
+                </div>
+              </div>
+
+              <!-- Yağ -->
+              <div>
+                <div class="flex justify-between text-xs mb-1">
+                  <span class="font-semibold text-slate-700">Yağ (%30)</span>
+                  <span id="dailyFatText" class="font-bold text-cyan-700">0g / 73g</span>
+                </div>
+                <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+                  <div id="fatProgressBar" class="progress-fill h-full bg-cyan-500 rounded-full" style="width: 0%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kayıtlı Öğünler Başlığı & Günü Sıfırla -->
+          <div class="flex items-center justify-between mb-3">
+            <h3 class="text-xs font-extrabold uppercase tracking-wider text-slate-500">
+              Günlük Öğün Kayıtları (<span id="loggedCount">0</span>)
+            </h3>
+
+            <!-- İki Aşamalı Satır İçi Sıfırlama Butonu -->
+            <div id="clearLogActions">
+              <button
+                type="button"
+                id="requestClearBtn"
+                onclick="promptClearLog()"
+                class="hidden text-xs font-bold text-rose-600 hover:text-rose-700 px-2.5 py-1 rounded-lg hover:bg-rose-50 transition-colors"
+              >
+                Günü Sıfırla
+              </button>
+              <div id="confirmClearGroup" class="hidden flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onclick="confirmClearLog()"
+                  class="text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 px-2.5 py-1 rounded-lg"
+                >
+                  Evet, Sıfırla
+                </button>
+                <button
+                  type="button"
+                  onclick="cancelClearLog()"
+                  class="text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg"
+                >
+                  Vazgeç
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Kayıtlı Besinler Listesi -->
+          <div id="dailyLogList" class="space-y-2.5 max-h-[420px] overflow-y-auto pr-1">
+            <!-- Boş Durum -->
+            <div class="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+              <p class="text-xs font-bold text-slate-600">Bugün henüz öğün eklenmedi</p>
+              <p class="text-[11px] text-slate-400 mt-1">Analiz ettiğiniz öğünleri "+ Günlük Takibe Ekle" butonuyla buraya kaydedebilirsiniz.</p>
+            </div>
+          </div>
+        </section>
+      </aside>
+    </div>
+
+    <!-- Geliştirici API İnceleyici (Developer API Inspector) -->
+    <section id="devInspectorSection" class="bg-slate-900 text-slate-100 rounded-2xl border border-slate-800 shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onclick="toggleDevInspector()"
+        class="w-full px-5 sm:px-6 py-4 flex items-center justify-between text-left hover:bg-slate-800/60 transition-colors"
+      >
+        <div class="flex items-center gap-3">
+          <span class="px-2.5 py-1 rounded-lg text-[11px] font-mono font-bold bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+            GET /v1/nutrition
+          </span>
+          <div>
+            <h3 class="text-sm font-extrabold text-white">Geliştirici API İnceleyici</h3>
+            <p class="text-xs text-slate-400 hidden sm:block">Tam HTTP GET URL'sini, maskelenmiş istek başlıklarını, gecikme süresini (ms) ve ham JSON yanıtını inceleyin</p>
+          </div>
+        </div>
+        <div class="flex items-center gap-2.5">
+          <span id="inspectorStatusBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-mono font-semibold bg-slate-800 text-emerald-400 border border-slate-700">
+            200 OK • 0ms
+          </span>
+          <svg id="devChevron" class="w-4 h-4 text-slate-400 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <!-- Açılır İnceleyici İçeriği -->
+      <div id="devInspectorBody" class="hidden px-5 sm:px-6 pb-6 pt-2 border-t border-slate-800 space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <!-- Sol: HTTP İstek Bilgileri -->
+          <div class="space-y-3">
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">HTTP GET Endpoint URL</span>
+                <button
+                  type="button"
+                  onclick="copyInspectorUrl()"
+                  class="text-[11px] font-semibold text-cyan-400 hover:text-cyan-300"
+                >
+                  URL Kopyala
+                </button>
+              </div>
+              <div id="inspectorUrl" class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-emerald-300 break-all">
+                https://api.calorieninjas.com/v1/nutrition?query=
+              </div>
+            </div>
+
+            <div>
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Request Headers (X-Api-Key)</span>
+                <button
+                  type="button"
+                  id="toggleInspectorKeyBtn"
+                  onclick="toggleInspectorKeyReveal()"
+                  class="text-[11px] font-semibold text-indigo-400 hover:text-indigo-300"
+                >
+                  Anahtarı Göster
+                </button>
+              </div>
+              <pre id="inspectorHeaders" class="p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto">{
+  "Accept": "application/json",
+  "X-Api-Key": "AKILLI_DEMO_MODU"
+}</pre>
+            </div>
+          </div>
+
+          <!-- Sağ: Sözdizimi Vurgulu Ham JSON Yanıtı -->
+          <div>
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-[11px] font-mono uppercase tracking-wider text-slate-400">Ham JSON Yanıtı (Response Body)</span>
+              <button
+                type="button"
+                onclick="copyRawJson()"
+                class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-slate-800 text-cyan-300 hover:bg-slate-700 transition-colors"
+              >
+                JSON Kopyala
+              </button>
+            </div>
+            <pre id="inspectorJson" class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs leading-relaxed max-h-72 overflow-auto">{
+  <span class="text-cyan-300">"items"</span>: []
+}</pre>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Alt Bilgi (Footer) -->
+  <footer class="border-t border-slate-200/80 bg-white/70 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-500">
+      <p><strong class="text-slate-700">Caloriq</strong> — Akıllı Besin &amp; Makro Analizi • CalorieNinjas API Entegrasyonu</p>
+      <p>Besin değerleri bilgilendirme amaçlıdır; tıbbi veya klinik diyetisyen tavsiyesi yerine geçmez.</p>
+    </div>
+  </footer>
+
+  <!-- Uygulama Mantığı -->
+  <script>
+    // =========================================================================
+    // 1. UYGULAMA DURUMU (STATE) VE DEPOLAMA ANAHTARLARI
+    // =========================================================================
+    const STORAGE_KEYS = {
+      API_KEY: 'caloriq_cn_api_key',
+      DEMO_MODE: 'caloriq_cn_demo_mode',
+      DAILY_LOG: 'caloriq_daily_log',
+      DAILY_GOAL: 'caloriq_daily_goal',
+    };
+
+    const appState = {
+      apiKey: '',
+      demoMode: true,
+      showApiKeyInput: false,
+      revealInspectorKey: false,
+      currentQuery: '',
+      currentItems: [],
+      dailyGoal: 2200,
+      dailyLog: [],
+      lastInspectorData: {
+        url: '',
+        status: '200 OK',
+        latencyMs: 0,
+        isDemo: true,
+        rawJson: { items: [] },
+      },
+    };
+
+    // =========================================================================
+    // 2. KAPSAMLI AKILLI NLP BESİN VERİTABANI VE AYRIŞTIRICI MOTORU
+    // =========================================================================
+    const SMART_FOOD_DB = [
+      {
+        keywords: ['boiled egg', 'scrambled egg', 'fried egg', 'eggs', 'egg'],
+        baseServingG: 50,
+        per100g: { calories: 155, protein_g: 12.6, carbohydrates_total_g: 1.1, fat_total_g: 10.6, fat_saturated_g: 3.3, fiber_g: 0, sugar_g: 1.1, sodium_mg: 124, potassium_mg: 126, cholesterol_mg: 373 },
+        displayName: 'eggs',
+      },
+      {
+        keywords: ['whole wheat toast', 'whole wheat bread', 'wheat toast', 'toast', 'bread'],
+        baseServingG: 32,
+        per100g: { calories: 252, protein_g: 12.5, carbohydrates_total_g: 42.7, fat_total_g: 3.5, fat_saturated_g: 0.7, fiber_g: 6.0, sugar_g: 4.3, sodium_mg: 450, potassium_mg: 254, cholesterol_mg: 0 },
+        displayName: 'whole wheat toast',
+      },
+      {
+        keywords: ['avocado', 'avocados'],
+        baseServingG: 150, // 1 orta avokado (~150g; "half an avocado" -> 75g)
+        per100g: { calories: 160, protein_g: 2.0, carbohydrates_total_g: 8.5, fat_total_g: 14.7, fat_saturated_g: 2.1, fiber_g: 6.7, sugar_g: 0.7, sodium_mg: 7, potassium_mg: 485, cholesterol_mg: 0 },
+        displayName: 'avocado',
+      },
+      {
+        keywords: ['chicken breast', 'grilled chicken', 'chicken'],
+        baseServingG: 100,
+        per100g: { calories: 165, protein_g: 31.0, carbohydrates_total_g: 0, fat_total_g: 3.6, fat_saturated_g: 1.0, fiber_g: 0, sugar_g: 0, sodium_mg: 74, potassium_mg: 256, cholesterol_mg: 85 },
+        displayName: 'chicken breast',
+      },
+      {
+        keywords: ['brown rice', 'white rice', 'rice'],
+        baseServingG: 100,
+        per100g: { calories: 130, protein_g: 2.7, carbohydrates_total_g: 28.2, fat_total_g: 0.3, fat_saturated_g: 0.1, fiber_g: 0.4, sugar_g: 0.1, sodium_mg: 1, potassium_mg: 35, cholesterol_mg: 0 },
+        displayName: 'white rice',
+      },
+      {
+        keywords: ['oatmeal', 'oats', 'rolled oats'],
+        baseServingG: 80,
+        per100g: { calories: 389, protein_g: 16.9, carbohydrates_total_g: 66.3, fat_total_g: 6.9, fat_saturated_g: 1.2, fiber_g: 10.6, sugar_g: 0, sodium_mg: 2, potassium_mg: 429, cholesterol_mg: 0 },
+        displayName: 'oats',
+      },
+      {
+        keywords: ['grilled salmon', 'salmon'],
+        baseServingG: 100,
+        per100g: { calories: 206, protein_g: 22.1, carbohydrates_total_g: 0, fat_total_g: 12.4, fat_saturated_g: 2.5, fiber_g: 0, sugar_g: 0, sodium_mg: 61, potassium_mg: 384, cholesterol_mg: 63 },
+        displayName: 'grilled salmon',
+      },
+      {
+        keywords: ['beef steak', 'ribeye steak', 'steak', 'beef'],
+        baseServingG: 150,
+        per100g: { calories: 271, protein_g: 25.9, carbohydrates_total_g: 0, fat_total_g: 17.9, fat_saturated_g: 7.2, fiber_g: 0, sugar_g: 0, sodium_mg: 55, potassium_mg: 318, cholesterol_mg: 89 },
+        displayName: 'steak',
+      },
+      {
+        keywords: ['banana', 'bananas'],
+        baseServingG: 118,
+        per100g: { calories: 89, protein_g: 1.1, carbohydrates_total_g: 22.8, fat_total_g: 0.3, fat_saturated_g: 0.1, fiber_g: 2.6, sugar_g: 12.2, sodium_mg: 1, potassium_mg: 358, cholesterol_mg: 0 },
+        displayName: 'banana',
+      },
+      {
+        keywords: ['apple', 'apples'],
+        baseServingG: 182,
+        per100g: { calories: 52, protein_g: 0.3, carbohydrates_total_g: 13.8, fat_total_g: 0.2, fat_saturated_g: 0, fiber_g: 2.4, sugar_g: 10.4, sodium_mg: 1, potassium_mg: 107, cholesterol_mg: 0 },
+        displayName: 'apple',
+      },
+      {
+        keywords: ['almond', 'almonds'],
+        baseServingG: 28,
+        per100g: { calories: 579, protein_g: 21.2, carbohydrates_total_g: 21.6, fat_total_g: 49.9, fat_saturated_g: 3.8, fiber_g: 12.5, sugar_g: 4.4, sodium_mg: 1, potassium_mg: 733, cholesterol_mg: 0 },
+        displayName: 'almonds',
+      },
+      {
+        keywords: ['greek yogurt', 'yogurt'],
+        baseServingG: 150,
+        per100g: { calories: 59, protein_g: 10.3, carbohydrates_total_g: 3.6, fat_total_g: 0.4, fat_saturated_g: 0.1, fiber_g: 0, sugar_g: 3.2, sodium_mg: 36, potassium_mg: 141, cholesterol_mg: 5 },
+        displayName: 'greek yogurt',
+      },
+      {
+        keywords: ['spaghetti', 'pasta'],
+        baseServingG: 140,
+        per100g: { calories: 158, protein_g: 5.8, carbohydrates_total_g: 30.9, fat_total_g: 0.9, fat_saturated_g: 0.2, fiber_g: 1.8, sugar_g: 0.6, sodium_mg: 1, potassium_mg: 44, cholesterol_mg: 0 },
+        displayName: 'pasta',
+      },
+      {
+        keywords: ['steamed broccoli', 'broccoli'],
+        baseServingG: 100,
+        per100g: { calories: 35, protein_g: 2.4, carbohydrates_total_g: 7.2, fat_total_g: 0.4, fat_saturated_g: 0.1, fiber_g: 3.3, sugar_g: 1.4, sodium_mg: 41, potassium_mg: 293, cholesterol_mg: 0 },
+        displayName: 'steamed broccoli',
+      },
+      {
+        keywords: ['sweet potato', 'baked potato', 'potato', 'potatoes'],
+        baseServingG: 150,
+        per100g: { calories: 93, protein_g: 2.5, carbohydrates_total_g: 21.2, fat_total_g: 0.1, fat_saturated_g: 0, fiber_g: 2.2, sugar_g: 1.2, sodium_mg: 10, potassium_mg: 535, cholesterol_mg: 0 },
+        displayName: 'baked potato',
+      },
+      {
+        keywords: ['whole milk', 'milk'],
+        baseServingG: 240,
+        per100g: { calories: 42, protein_g: 3.4, carbohydrates_total_g: 5.0, fat_total_g: 1.0, fat_saturated_g: 0.6, fiber_g: 0, sugar_g: 5.0, sodium_mg: 44, potassium_mg: 150, cholesterol_mg: 5 },
+        displayName: 'milk',
+      },
+      {
+        keywords: ['cheddar cheese', 'feta cheese', 'cheese'],
+        baseServingG: 30,
+        per100g: { calories: 402, protein_g: 24.9, carbohydrates_total_g: 1.3, fat_total_g: 33.1, fat_saturated_g: 21.1, fiber_g: 0, sugar_g: 0.5, sodium_mg: 621, potassium_mg: 98, cholesterol_mg: 105 },
+        displayName: 'cheese',
+      },
+      {
+        keywords: ['olive oil'],
+        baseServingG: 14,
+        per100g: { calories: 884, protein_g: 0, carbohydrates_total_g: 0, fat_total_g: 100.0, fat_saturated_g: 13.8, fiber_g: 0, sugar_g: 0, sodium_mg: 2, potassium_mg: 1, cholesterol_mg: 0 },
+        displayName: 'olive oil',
+      },
+      {
+        keywords: ['peanut butter'],
+        baseServingG: 32,
+        per100g: { calories: 588, protein_g: 25.1, carbohydrates_total_g: 20.0, fat_total_g: 50.4, fat_saturated_g: 10.3, fiber_g: 6.0, sugar_g: 9.2, sodium_mg: 426, potassium_mg: 558, cholesterol_mg: 0 },
+        displayName: 'peanut butter',
+      },
+      {
+        keywords: ['lentil soup', 'lentils'],
+        baseServingG: 240,
+        per100g: { calories: 67, protein_g: 4.5, carbohydrates_total_g: 10.2, fat_total_g: 1.1, fat_saturated_g: 0.2, fiber_g: 3.1, sugar_g: 1.2, sodium_mg: 280, potassium_mg: 165, cholesterol_mg: 0 },
+        displayName: 'lentil soup',
+      },
+      {
+        keywords: ['tuna fish', 'canned tuna', 'tuna'],
+        baseServingG: 100,
+        per100g: { calories: 116, protein_g: 25.5, carbohydrates_total_g: 0, fat_total_g: 0.8, fat_saturated_g: 0.2, fiber_g: 0, sugar_g: 0, sodium_mg: 338, potassium_mg: 237, cholesterol_mg: 42 },
+        displayName: 'tuna',
+      },
+      {
+        keywords: ['black coffee', 'espresso', 'latte', 'coffee'],
+        baseServingG: 240,
+        per100g: { calories: 2, protein_g: 0.3, carbohydrates_total_g: 0, fat_total_g: 0, fat_saturated_g: 0, fiber_g: 0, sugar_g: 0, sodium_mg: 2, potassium_mg: 49, cholesterol_mg: 0 },
+        displayName: 'coffee',
+      },
+      {
+        keywords: ['walnut', 'walnuts'],
+        baseServingG: 28,
+        per100g: { calories: 654, protein_g: 15.2, carbohydrates_total_g: 13.7, fat_total_g: 65.2, fat_saturated_g: 6.1, fiber_g: 6.7, sugar_g: 2.6, sodium_mg: 2, potassium_mg: 441, cholesterol_mg: 0 },
+        displayName: 'walnuts',
+      },
+      {
+        keywords: ['orange', 'oranges'],
+        baseServingG: 131,
+        per100g: { calories: 47, protein_g: 0.9, carbohydrates_total_g: 11.8, fat_total_g: 0.1, fat_saturated_g: 0, fiber_g: 2.4, sugar_g: 9.4, sodium_mg: 0, potassium_mg: 181, cholesterol_mg: 0 },
+        displayName: 'orange',
+      },
+      {
+        keywords: ['honey'],
+        baseServingG: 21,
+        per100g: { calories: 304, protein_g: 0.3, carbohydrates_total_g: 82.4, fat_total_g: 0, fat_saturated_g: 0, fiber_g: 0.2, sugar_g: 82.1, sodium_mg: 4, potassium_mg: 52, cholesterol_mg: 0 },
+        displayName: 'honey',
+      },
+    ];
+
+    function round1(val) {
+      return Math.round(val * 10) / 10;
+    }
+
+    /**
+     * Akıllı NLP Benzetim Motoru:
+     * "half an avocado", "200g chicken breast", "2 oz almonds", "1 cup oats", "1 tbsp olive oil"
+     * gibi ifadeleri ağırlık ve porsiyon kurallarına göre CalorieNinjas JSON şemasına dönüştürür.
+     */
+    function simulateCalorieNinjasResponse(query) {
+      const cleaned = query.trim().toLowerCase();
+      if (!cleaned) return { items: [] };
+
+      const parts = cleaned
+        .split(/,|\band\b|\+|\n/gi)
+        .map((p) => p.trim())
+        .filter(Boolean);
+
+      const items = [];
+
+      parts.forEach((part) => {
+        // Kesirli ve sözel miktarları çözümle ("half", "quarter", "1.5", "2")
+        let multiplier = 1;
+        if (/\bhalf\b/.test(part)) {
+          multiplier = 0.5;
+        } else if (/\bquarter\b/.test(part)) {
+          multiplier = 0.25;
+        } else {
+          const numMatch = part.match(/^(\d+(?:\.\d+)?)\b/);
+          if (numMatch) {
+            multiplier = parseFloat(numMatch[1]);
+          }
+        }
+
+        // Birim tabanlı gramaj tespiti (g, ml, oz, cup, slice, tbsp, tsp)
+        const gramMatch = part.match(/(\d+(?:\.\d+)?)\s*(g|gr|gram|grams|ml)\b/i);
+        const ozMatch = part.match(/(\d+(?:\.\d+)?)\s*(oz|ounce|ounces)\b/i);
+        const cupMatch = part.match(/(\d+(?:\.\d+)?)\s*(cup|cups)\b/i);
+        const tbspMatch = part.match(/(\d+(?:\.\d+)?)\s*(tbsp|tablespoon|tablespoons)\b/i);
+        const tspMatch = part.match(/(\d+(?:\.\d+)?)\s*(tsp|teaspoon|teaspoons)\b/i);
+
+        // Sözlükte eşleşen besini bul
+        let matchedFood = null;
+        for (const entry of SMART_FOOD_DB) {
+          if (entry.keywords.some((kw) => part.includes(kw))) {
+            matchedFood = entry;
+            break;
+          }
+        }
+
+        if (matchedFood) {
+          let totalGrams = matchedFood.baseServingG * multiplier;
+
+          if (gramMatch) {
+            totalGrams = parseFloat(gramMatch[1]);
+          } else if (ozMatch) {
+            totalGrams = parseFloat(ozMatch[1]) * 28.35;
+          } else if (cupMatch) {
+            totalGrams = parseFloat(cupMatch[1]) * 180;
+          } else if (tbspMatch) {
+            totalGrams = parseFloat(tbspMatch[1]) * 14;
+          } else if (tspMatch) {
+            totalGrams = parseFloat(tspMatch[1]) * 5;
+          }
+
+          const factor = totalGrams / 100;
+          const p = matchedFood.per100g;
+
+          items.push({
+            name: matchedFood.displayName,
+            calories: round1(p.calories * factor),
+            serving_size_g: round1(totalGrams),
+            fat_total_g: round1(p.fat_total_g * factor),
+            fat_saturated_g: round1(p.fat_saturated_g * factor),
+            protein_g: round1(p.protein_g * factor),
+            sodium_mg: Math.round(p.sodium_mg * factor),
+            potassium_mg: Math.round(p.potassium_mg * factor),
+            cholesterol_mg: Math.round(p.cholesterol_mg * factor),
+            carbohydrates_total_g: round1(p.carbohydrates_total_g * factor),
+            fiber_g: round1(p.fiber_g * factor),
+            sugar_g: round1(p.sugar_g * factor),
+          });
+        } else {
+          const nameClean = part
+            .replace(/\b(half|quarter|an|a|of)\b/gi, '')
+            .replace(/(\d+(?:\.\d+)?)\s*(g|gr|gram|grams|ml|oz|cup|cups|slice|slices|tbsp|tsp|medium|large|small)?\b/gi, '')
+            .trim();
+
+          if (nameClean.length >= 2) {
+            let grams = 100 * multiplier;
+            if (gramMatch) grams = parseFloat(gramMatch[1]);
+            else if (ozMatch) grams = parseFloat(ozMatch[1]) * 28.35;
+
+            const factor = grams / 100;
+            items.push({
+              name: nameClean,
+              calories: round1(140 * factor),
+              serving_size_g: round1(grams),
+              fat_total_g: round1(4.2 * factor),
+              fat_saturated_g: round1(1.1 * factor),
+              protein_g: round1(7.5 * factor),
+              sodium_mg: Math.round(85 * factor),
+              potassium_mg: Math.round(170 * factor),
+              cholesterol_mg: Math.round(12 * factor),
+              carbohydrates_total_g: round1(17.5 * factor),
+              fiber_g: round1(2.1 * factor),
+              sugar_g: round1(3.2 * factor),
+            });
+          }
+        }
+      });
+
+      return { items };
+    }
+
+    // =========================================================================
+    // 3. BAŞLATMA VE LOCALSTORAGE YÖNETİMİ
+    // =========================================================================
+    function initApp() {
+      try {
+        const savedKey = localStorage.getItem(STORAGE_KEYS.API_KEY) || '';
+        const savedDemo = localStorage.getItem(STORAGE_KEYS.DEMO_MODE);
+        const savedGoal = parseInt(localStorage.getItem(STORAGE_KEYS.DAILY_GOAL), 10);
+        const savedLog = JSON.parse(localStorage.getItem(STORAGE_KEYS.DAILY_LOG) || '[]');
+
+        appState.apiKey = savedKey;
+        if (!savedKey) {
+          appState.demoMode = true;
+        } else {
+          appState.demoMode = savedDemo !== null ? savedDemo === 'true' : false;
+        }
+
+        if (!isNaN(savedGoal) && savedGoal >= 500) {
+          appState.dailyGoal = savedGoal;
+        }
+        if (Array.isArray(savedLog)) {
+          appState.dailyLog = savedLog;
+        }
+      } catch (err) {
+        console.error('LocalStorage okuma hatası:', err);
+      }
+
+      document.getElementById('apiKeyInput').value = appState.apiKey;
+      updateModeUI();
+      renderDailyTracker();
+
+      // Escape tuşu ile modal kapatma
+      document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+          closeApiModal();
+        }
+      });
+
+      // Sayfa açılışında varsayılan öğünü analiz et
+      const initialQuery = document.getElementById('mealQueryInput').value.trim();
+      if (initialQuery) {
+        analyzeNutrition(initialQuery);
+      }
+    }
+
+    // =========================================================================
+    // 4. API AYARLARI MODALI & DEMO MODU KONTROLLERİ
+    // =========================================================================
+    function openApiModal() {
+      const modal = document.getElementById('apiSettingsModal');
+      document.getElementById('apiTestFeedback').classList.add('hidden');
+      modal.classList.remove('hidden');
+    }
+
+    function closeApiModal() {
+      document.getElementById('apiSettingsModal').classList.add('hidden');
+    }
+
+    function handleModalBackdropClick(event) {
+      if (event.target.id === 'apiSettingsModal') {
+        closeApiModal();
+      }
+    }
+
+    function toggleApiKeyVisibility() {
+      const input = document.getElementById('apiKeyInput');
+      appState.showApiKeyInput = !appState.showApiKeyInput;
+      input.type = appState.showApiKeyInput ? 'text' : 'password';
+    }
+
+    async function testApiKeyConnection() {
+      const candidateKey = document.getElementById('apiKeyInput').value.trim();
+      const feedbackBox = document.getElementById('apiTestFeedback');
+      const testBtn = document.getElementById('testApiKeyBtn');
+
+      if (!candidateKey) {
+        feedbackBox.className = 'p-3 rounded-xl text-xs font-medium border bg-amber-50 border-amber-200 text-amber-800';
+        feedbackBox.textContent = 'Lütfen test etmek için önce bir CalorieNinjas API anahtarı girin.';
+        feedbackBox.classList.remove('hidden');
+        return;
+      }
+
+      testBtn.disabled = true;
+      testBtn.textContent = 'Test Ediliyor...';
+      feedbackBox.className = 'p-3 rounded-xl text-xs font-medium border bg-slate-50 border-slate-200 text-slate-600';
+      feedbackBox.textContent = 'CalorieNinjas API sunucusuna doğrulama isteği gönderiliyor...';
+      feedbackBox.classList.remove('hidden');
+
+      try {
+        const res = await fetch('https://api.calorieninjas.com/v1/nutrition?query=1%20apple', {
+          method: 'GET',
+          headers: {
+            'X-Api-Key': candidateKey,
+            Accept: 'application/json',
+          },
+        });
+
+        if (res.ok) {
+          feedbackBox.className = 'p-3 rounded-xl text-xs font-semibold border bg-emerald-50 border-emerald-200 text-emerald-800';
+          feedbackBox.textContent = 'Bağlantı başarılı (200 OK)! Anahtarınız geçerli, "Anahtarı Kaydet" ile aktif edebilirsiniz.';
+        } else if (res.status === 401 || res.status === 403) {
+          feedbackBox.className = 'p-3 rounded-xl text-xs font-semibold border bg-rose-50 border-rose-200 text-rose-800';
+          feedbackBox.textContent = `Yetkilendirme hatası (${res.status}): Girdiğiniz X-Api-Key geçersiz veya süresi dolmuş.`;
+        } else {
+          feedbackBox.className = 'p-3 rounded-xl text-xs font-semibold border bg-amber-50 border-amber-200 text-amber-800';
+          feedbackBox.textContent = `Sunucu beklenmeyen durum döndürdü: HTTP ${res.status}`;
+        }
+      } catch (err) {
+        feedbackBox.className = 'p-3 rounded-xl text-xs font-semibold border bg-rose-50 border-rose-200 text-rose-800';
+        feedbackBox.textContent = 'Ağ veya CORS engeli nedeniyle sunucuya ulaşılamadı. Akıllı Demo Modu\'nu kullanabilirsiniz.';
+      } finally {
+        testBtn.disabled = false;
+        testBtn.textContent = 'Bağlantıyı Test Et';
+      }
+    }
+
+    function saveApiKey() {
+      const rawKey = document.getElementById('apiKeyInput').value.trim();
+      appState.apiKey = rawKey;
+      localStorage.setItem(STORAGE_KEYS.API_KEY, rawKey);
+
+      if (rawKey) {
+        appState.demoMode = false;
+        localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'false');
+        showToast('API anahtarı kaydedildi. CalorieNinjas API Aktif!', 'success');
+        closeApiModal();
+      } else {
+        appState.demoMode = true;
+        localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'true');
+        showToast('Anahtar boş olduğu için Akıllı Demo Modu aktif edildi.', 'info');
+      }
+      updateModeUI();
+      renderInspectorHeaders();
+    }
+
+    function clearApiKey() {
+      document.getElementById('apiKeyInput').value = '';
+      document.getElementById('apiTestFeedback').classList.add('hidden');
+      appState.apiKey = '';
+      appState.demoMode = true;
+      localStorage.removeItem(STORAGE_KEYS.API_KEY);
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'true');
+      updateModeUI();
+      renderInspectorHeaders();
+      showToast('API anahtarı silindi ve Akıllı Demo Modu\'na geçildi.', 'info');
+    }
+
+    function toggleDemoMode() {
+      if (appState.demoMode && !appState.apiKey) {
+        const feedbackBox = document.getElementById('apiTestFeedback');
+        feedbackBox.className = 'p-3 rounded-xl text-xs font-semibold border bg-amber-50 border-amber-200 text-amber-800';
+        feedbackBox.textContent = 'Canlı API moduna geçmek için önce yukarıya bir X-Api-Key girmelisiniz.';
+        feedbackBox.classList.remove('hidden');
+        document.getElementById('apiKeyInput').focus();
+        return;
+      }
+
+      appState.demoMode = !appState.demoMode;
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, String(appState.demoMode));
+      updateModeUI();
+      renderInspectorHeaders();
+      showToast(
+        appState.demoMode ? 'Akıllı Demo Modu etkinleştirildi.' : 'CalorieNinjas API Aktif edildi.',
+        'info'
+      );
+    }
+
+    function updateModeUI() {
+      const badge = document.getElementById('modeBadge');
+      const dot = document.getElementById('modeDot');
+      const badgeText = document.getElementById('modeBadgeText');
+      const toggleBtn = document.getElementById('demoModeToggle');
+      const knob = document.getElementById('demoModeKnob');
+
+      if (appState.demoMode) {
+        badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800 border border-cyan-200/80';
+        dot.className = 'w-2 h-2 rounded-full bg-cyan-500 animate-pulse';
+        badgeText.textContent = 'Akıllı Demo Modu';
+        toggleBtn.setAttribute('aria-checked', 'true');
+        toggleBtn.classList.remove('bg-slate-300');
+        toggleBtn.classList.add('bg-emerald-500');
+        knob.classList.add('translate-x-5');
+        knob.classList.remove('translate-x-0');
+      } else {
+        badge.className = 'inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200/80';
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 animate-pulse';
+        badgeText.textContent = 'CalorieNinjas API Aktif';
+        toggleBtn.setAttribute('aria-checked', 'false');
+        toggleBtn.classList.remove('bg-emerald-500');
+        toggleBtn.classList.add('bg-slate-300');
+        knob.classList.remove('translate-x-5');
+        knob.classList.add('translate-x-0');
+      }
+    }
+
+    // =========================================================================
+    // 5. BESİN SORGULAMA VE API ENTEGRASYONU
+    // =========================================================================
+    function applyPreset(query) {
+      const input = document.getElementById('mealQueryInput');
+      input.value = query;
+      analyzeNutrition(query);
+    }
+
+    function handleSearchSubmit(event) {
+      event.preventDefault();
+      const query = document.getElementById('mealQueryInput').value.trim();
+      analyzeNutrition(query);
+    }
+
+    function switchToDemoAndRetry() {
+      appState.demoMode = true;
+      localStorage.setItem(STORAGE_KEYS.DEMO_MODE, 'true');
+      updateModeUI();
+      const q = document.getElementById('mealQueryInput').value.trim();
+      if (q) analyzeNutrition(q);
+    }
+
+    async function analyzeNutrition(query) {
+      hideError();
+
+      if (!query) {
+        showError('Boş Öğün İfadesi', 'Lütfen analiz etmek istediğiniz besinleri ve miktarlarını yazın (örn. "2 eggs and half an avocado").');
+        return;
+      }
+
+      setLoadingState(true);
+      const encodedQuery = encodeURIComponent(query);
+      const endpointUrl = `https://api.calorieninjas.com/v1/nutrition?query=${encodedQuery}`;
+      const startTime = performance.now();
+
+      try {
+        let data;
+
+        if (appState.demoMode) {
+          await new Promise((r) => setTimeout(r, 240));
+          data = simulateCalorieNinjasResponse(query);
+          const latency = Math.round(performance.now() - startTime);
+
+          updateDevInspector({
+            url: endpointUrl,
+            status: '200 OK (DEMO)',
+            latencyMs: latency,
+            isDemo: true,
+            rawJson: data,
+          });
+        } else {
+          if (!appState.apiKey) {
+            throw new Error('NO_API_KEY');
+          }
+
+          const response = await fetch(endpointUrl, {
+            method: 'GET',
+            headers: {
+              'X-Api-Key': appState.apiKey,
+              Accept: 'application/json',
+            },
+          });
+
+          const latency = Math.round(performance.now() - startTime);
+          const statusLabel = `${response.status} ${response.statusText || ''}`.trim();
+
+          let responseBody = null;
+          try {
+            responseBody = await response.json();
+          } catch (_) {
+            responseBody = { error: 'JSON yanıtı çözümlenemedi' };
+          }
+
+          updateDevInspector({
+            url: endpointUrl,
+            status: statusLabel,
+            latencyMs: latency,
+            isDemo: false,
+            rawJson: responseBody,
+          });
+
+          if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+              throw new Error('INVALID_API_KEY');
+            }
+            if (response.status === 429) {
+              throw new Error('RATE_LIMIT');
+            }
+            throw new Error(`HTTP_${response.status}`);
+          }
+
+          data = responseBody;
+        }
+
+        const items = Array.isArray(data?.items) ? data.items : [];
+        if (items.length === 0) {
+          showError(
+            'Besin Bulunamadı',
+            'Girdiğiniz açıklamaya karşılık gelen bir besin kaydı döndürülmedi. İngilizce besin isimleri ve porsiyonlar (örn. "200g chicken breast") kullanmayı deneyin.'
+          );
+          return;
+        }
+
+        appState.currentQuery = query;
+        appState.currentItems = items;
+        renderAnalysisResults(query, items);
+      } catch (err) {
+        console.error('Caloriq Analiz Hatası:', err);
+        if (err.message === 'NO_API_KEY') {
+          showError(
+            'API Anahtarı Tanımlı Değil',
+            'Canlı API modu aktif ancak kayıtlı bir X-Api-Key bulunamadı. "API Ayarları" üzerinden anahtarınızı girebilir veya Akıllı Demo Modu\'na geçebilirsiniz.',
+            true
+          );
+        } else if (err.message === 'INVALID_API_KEY') {
+          showError(
+            'Geçersiz API Anahtarı (401/403)',
+            'CalorieNinjas API anahtarınız doğrulanamadı. Anahtarınızı kontrol edebilir veya anında test için Akıllı Demo Modu\'na geçebilirsiniz.',
+            true
+          );
+        } else if (err.message === 'RATE_LIMIT') {
+          showError(
+            'İstek Sınırı Aşıldı (429)',
+            'API kullanım limitine ulaştınız. Dilerseniz Akıllı Demo Modu ile analize kesintisiz devam edebilirsiniz.',
+            true
+          );
+        } else {
+          showError(
+            'Bağlantı veya Ağ Hatası',
+            'CalorieNinjas sunucusuna erişilirken bir bağlantı sorunu oluştu. İnternet bağlantınızı kontrol edin veya Akıllı Demo Modu\'na geçiş yapın.',
+            true
+          );
+        }
+      } finally {
+        setLoadingState(false);
+      }
+    }
+
+    function setLoadingState(isLoading) {
+      const btn = document.getElementById('analyzeBtn');
+      const icon = document.getElementById('searchIcon');
+      const spinner = document.getElementById('loadingSpinner');
+      const text = document.getElementById('analyzeBtnText');
+
+      btn.disabled = isLoading;
+      if (isLoading) {
+        icon.classList.add('hidden');
+        spinner.classList.remove('hidden');
+        text.textContent = 'Analiz Ediliyor...';
+      } else {
+        icon.classList.remove('hidden');
+        spinner.classList.add('hidden');
+        text.textContent = 'Analiz Et';
+      }
+    }
+
+    function showError(title, message, offerDemoFallback = false) {
+      const box = document.getElementById('errorAlert');
+      const fallbackBtn = document.getElementById('fallbackDemoBtn');
+      document.getElementById('errorTitle').textContent = title;
+      document.getElementById('errorMessage').textContent = message;
+
+      if (offerDemoFallback && !appState.demoMode) {
+        fallbackBtn.classList.remove('hidden');
+      } else {
+        fallbackBtn.classList.add('hidden');
+      }
+
+      box.classList.remove('hidden');
+    }
+
+    function hideError() {
+      document.getElementById('errorAlert').classList.add('hidden');
+    }
+
+    // =========================================================================
+    // 6. ANALİZ SONUÇLARI & SVG DONUT GRAFİK GÖRSELLEŞTİRME
+    // =========================================================================
+    function calculateTotals(items) {
+      return items.reduce(
+        (acc, item) => {
+          acc.calories += Number(item.calories) || 0;
+          acc.serving_size_g += Number(item.serving_size_g) || 0;
+          acc.protein_g += Number(item.protein_g) || 0;
+          acc.carbohydrates_total_g += Number(item.carbohydrates_total_g) || 0;
+          acc.fat_total_g += Number(item.fat_total_g) || 0;
+          acc.fat_saturated_g += Number(item.fat_saturated_g) || 0;
+          acc.fiber_g += Number(item.fiber_g) || 0;
+          acc.sugar_g += Number(item.sugar_g) || 0;
+          acc.sodium_mg += Number(item.sodium_mg) || 0;
+          acc.potassium_mg += Number(item.potassium_mg) || 0;
+          acc.cholesterol_mg += Number(item.cholesterol_mg) || 0;
+          return acc;
+        },
+        {
+          calories: 0,
+          serving_size_g: 0,
+          protein_g: 0,
+          carbohydrates_total_g: 0,
+          fat_total_g: 0,
+          fat_saturated_g: 0,
+          fiber_g: 0,
+          sugar_g: 0,
+          sodium_mg: 0,
+          potassium_mg: 0,
+          cholesterol_mg: 0,
+        }
+      );
+    }
+
+    function renderAnalysisResults(query, items) {
+      const totals = calculateTotals(items);
+
+      document.getElementById('analyzedItemCountBadge').textContent = `${items.length} besin`;
+      document.getElementById('analyzedQueryLabel').textContent = `"${query}"`;
+
+      document.getElementById('kpiCalories').textContent = round1(totals.calories);
+      document.getElementById('kpiProtein').textContent = round1(totals.protein_g);
+      document.getElementById('kpiCarbs').textContent = round1(totals.carbohydrates_total_g);
+      document.getElementById('kpiFat').textContent = round1(totals.fat_total_g);
+
+      document.getElementById('metaServing').textContent = `${round1(totals.serving_size_g)} g`;
+      document.getElementById('metaFiber').textContent = `${round1(totals.fiber_g)} g`;
+      document.getElementById('metaSugar').textContent = `${round1(totals.sugar_g)} g`;
+      document.getElementById('metaSodium').textContent = `${Math.round(totals.sodium_mg)} mg`;
+      document.getElementById('metaPotassium').textContent = `${Math.round(totals.potassium_mg)} mg`;
+      document.getElementById('metaCholesterol').textContent = `${Math.round(totals.cholesterol_mg)} mg`;
+
+      updateDonutChart(totals.protein_g, totals.carbohydrates_total_g, totals.fat_total_g);
+      renderFoodBreakdown(items);
+    }
+
+    let currentDonutStats = {
+      totalMacroKcal: 0,
+      protein: { g: 0, kcal: 0, pct: 0 },
+      carbs: { g: 0, kcal: 0, pct: 0 },
+      fat: { g: 0, kcal: 0, pct: 0 },
+    };
+
+    function updateDonutChart(proteinG, carbsG, fatG) {
+      const pKcal = proteinG * 4;
+      const cKcal = carbsG * 4;
+      const fKcal = fatG * 9;
+      const totalMacroKcal = pKcal + cKcal + fKcal;
+
+      const circumference = 2 * Math.PI * 38;
+
+      let pPct = 0;
+      let cPct = 0;
+      let fPct = 0;
+
+      if (totalMacroKcal > 0) {
+        pPct = Math.round((pKcal / totalMacroKcal) * 100);
+        cPct = Math.round((cKcal / totalMacroKcal) * 100);
+        fPct = Math.max(0, 100 - pPct - cPct);
+      }
+
+      currentDonutStats = {
+        totalMacroKcal: Math.round(totalMacroKcal),
+        protein: { g: round1(proteinG), kcal: Math.round(pKcal), pct: pPct },
+        carbs: { g: round1(carbsG), kcal: Math.round(cKcal), pct: cPct },
+        fat: { g: round1(fatG), kcal: Math.round(fKcal), pct: fPct },
+      };
+
+      const pLen = totalMacroKcal > 0 ? (pKcal / totalMacroKcal) * circumference : 0;
+      const cLen = totalMacroKcal > 0 ? (cKcal / totalMacroKcal) * circumference : 0;
+      const fLen = totalMacroKcal > 0 ? (fKcal / totalMacroKcal) * circumference : 0;
+
+      const elProtein = document.getElementById('donutProtein');
+      const elCarbs = document.getElementById('donutCarbs');
+      const elFat = document.getElementById('donutFat');
+
+      elProtein.setAttribute('stroke-dasharray', `${pLen} ${circumference}`);
+      elProtein.setAttribute('stroke-dashoffset', '0');
+
+      elCarbs.setAttribute('stroke-dasharray', `${cLen} ${circumference}`);
+      elCarbs.setAttribute('stroke-dashoffset', `${-pLen}`);
+
+      elFat.setAttribute('stroke-dasharray', `${fLen} ${circumference}`);
+      elFat.setAttribute('stroke-dashoffset', `${-(pLen + cLen)}`);
+
+      resetMacroHighlight();
+
+      document.getElementById('legendProteinDetail').textContent = `${round1(proteinG)}g • ${Math.round(pKcal)} kcal`;
+      document.getElementById('legendProteinPct').textContent = `%${pPct}`;
+
+      document.getElementById('legendCarbsDetail').textContent = `${round1(carbsG)}g • ${Math.round(cKcal)} kcal`;
+      document.getElementById('legendCarbsPct').textContent = `%${cPct}`;
+
+      document.getElementById('legendFatDetail').textContent = `${round1(fatG)}g • ${Math.round(fKcal)} kcal`;
+      document.getElementById('legendFatPct').textContent = `%${fPct}`;
+    }
+
+    function highlightMacro(macroName) {
+      const titleEl = document.getElementById('donutCenterTitle');
+      const valEl = document.getElementById('donutCenterValue');
+      const subEl = document.getElementById('donutCenterSub');
+      const segP = document.getElementById('donutProtein');
+      const segC = document.getElementById('donutCarbs');
+      const segF = document.getElementById('donutFat');
+
+      segP.style.opacity = macroName === 'Protein' ? '1' : '0.32';
+      segC.style.opacity = macroName === 'Karbonhidrat' ? '1' : '0.32';
+      segF.style.opacity = macroName === 'Yağ' ? '1' : '0.32';
+
+      if (macroName === 'Protein') {
+        titleEl.textContent = 'Protein';
+        valEl.textContent = `%${currentDonutStats.protein.pct}`;
+        subEl.textContent = `${currentDonutStats.protein.g}g • ${currentDonutStats.protein.kcal} kcal`;
+      } else if (macroName === 'Karbonhidrat') {
+        titleEl.textContent = 'Karbonhidrat';
+        valEl.textContent = `%${currentDonutStats.carbs.pct}`;
+        subEl.textContent = `${currentDonutStats.carbs.g}g • ${currentDonutStats.carbs.kcal} kcal`;
+      } else if (macroName === 'Yağ') {
+        titleEl.textContent = 'Yağ';
+        valEl.textContent = `%${currentDonutStats.fat.pct}`;
+        subEl.textContent = `${currentDonutStats.fat.g}g • ${currentDonutStats.fat.kcal} kcal`;
+      }
+    }
+
+    function resetMacroHighlight() {
+      document.getElementById('donutProtein').style.opacity = '1';
+      document.getElementById('donutCarbs').style.opacity = '1';
+      document.getElementById('donutFat').style.opacity = '1';
+      document.getElementById('donutCenterTitle').textContent = 'Makro Kalori';
+      document.getElementById('donutCenterValue').textContent = `${currentDonutStats.totalMacroKcal} kcal`;
+      document.getElementById('donutCenterSub').textContent = 'Toplam Enerji';
+    }
+
+    function renderFoodBreakdown(items) {
+      const container = document.getElementById('foodBreakdownList');
+      container.innerHTML = '';
+
+      items.forEach((item, idx) => {
+        const card = document.createElement('div');
+        card.className = 'p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 hover:border-cyan-300 transition-all';
+
+        const capitalizedName = item.name
+          ? item.name.charAt(0).toUpperCase() + item.name.slice(1)
+          : 'Besin Öğesi';
+
+        card.innerHTML = `
+          <div class="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-slate-200/70">
+            <div class="flex items-center gap-2.5">
+              <span class="w-7 h-7 rounded-xl bg-gradient-to-br from-emerald-500/15 to-cyan-500/20 text-cyan-800 border border-cyan-200/70 text-xs font-extrabold flex items-center justify-center">
+                ${idx + 1}
+              </span>
+              <div>
+                <h4 class="text-sm font-extrabold text-slate-900">${escapeHtml(capitalizedName)}</h4>
+                <span class="text-xs text-slate-500">Porsiyon: <strong class="text-slate-700">${round1(item.serving_size_g)} g</strong></span>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <span class="px-3 py-1 rounded-full text-xs font-extrabold bg-gradient-to-r from-emerald-500 to-cyan-600 text-white shadow-sm">
+                ${round1(item.calories)} kcal
+              </span>
+              <button
+                type="button"
+                onclick="addSingleItemToLog(${idx})"
+                class="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-white text-slate-700 border border-slate-300 hover:bg-cyan-50 hover:text-cyan-800 hover:border-cyan-300 transition-colors"
+                title="Sadece bu besini günlük takibe ekle"
+              >
+                <span>+ Ekle</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Protein</span>
+              <span class="font-bold text-indigo-700">${round1(item.protein_g)} g</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Karbonhidrat</span>
+              <span class="font-bold text-emerald-700">${round1(item.carbohydrates_total_g)} g</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Toplam / Doymuş Yağ</span>
+              <span class="font-bold text-cyan-700">${round1(item.fat_total_g)}g / ${round1(item.fat_saturated_g)}g</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Lif / Şeker</span>
+              <span class="font-bold text-slate-700">${round1(item.fiber_g)}g / ${round1(item.sugar_g)}g</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Sodyum</span>
+              <span class="font-bold text-slate-700">${Math.round(item.sodium_mg)} mg</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60">
+              <span class="text-slate-400 block text-[11px]">Potasyum</span>
+              <span class="font-bold text-slate-700">${Math.round(item.potassium_mg)} mg</span>
+            </div>
+            <div class="bg-white px-2.5 py-2 rounded-xl border border-slate-200/60 col-span-2">
+              <span class="text-slate-400 block text-[11px]">Kolesterol</span>
+              <span class="font-bold text-slate-700">${Math.round(item.cholesterol_mg)} mg</span>
+            </div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // =========================================================================
+    // 7. GÜNLÜK BESLENME TAKİBİ (DAILY LOG & PROGRESS BARS)
+    // =========================================================================
+    function addEntireMealToLog() {
+      if (!appState.currentItems || appState.currentItems.length === 0) {
+        showToast('Günlüğe eklenecek analiz edilmiş bir öğün bulunamadı.', 'warning');
+        return;
+      }
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+      appState.currentItems.forEach((item) => {
+        appState.dailyLog.unshift({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          name: item.name,
+          serving_size_g: round1(item.serving_size_g),
+          calories: round1(item.calories),
+          protein_g: round1(item.protein_g),
+          carbohydrates_total_g: round1(item.carbohydrates_total_g),
+          fat_total_g: round1(item.fat_total_g),
+          time: timeStr,
+        });
+      });
+
+      persistDailyLog();
+      renderDailyTracker();
+      showToast(`${appState.currentItems.length} besin günlük takibe eklendi!`, 'success');
+    }
+
+    function addSingleItemToLog(index) {
+      const item = appState.currentItems[index];
+      if (!item) return;
+
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+
+      appState.dailyLog.unshift({
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        name: item.name,
+        serving_size_g: round1(item.serving_size_g),
+        calories: round1(item.calories),
+        protein_g: round1(item.protein_g),
+        carbohydrates_total_g: round1(item.carbohydrates_total_g),
+        fat_total_g: round1(item.fat_total_g),
+        time: timeStr,
+      });
+
+      persistDailyLog();
+      renderDailyTracker();
+      showToast(`"${item.name}" günlük takibe eklendi.`, 'success');
+    }
+
+    function removeLogItem(id) {
+      appState.dailyLog = appState.dailyLog.filter((entry) => entry.id !== id);
+      persistDailyLog();
+      renderDailyTracker();
+      showToast('Öğün kaydı silindi.', 'info');
+    }
+
+    function promptClearLog() {
+      document.getElementById('requestClearBtn').classList.add('hidden');
+      document.getElementById('confirmClearGroup').classList.remove('hidden');
+    }
+
+    function cancelClearLog() {
+      document.getElementById('confirmClearGroup').classList.add('hidden');
+      document.getElementById('requestClearBtn').classList.remove('hidden');
+    }
+
+    function confirmClearLog() {
+      appState.dailyLog = [];
+      persistDailyLog();
+      cancelClearLog();
+      renderDailyTracker();
+      showToast('Günlük beslenme kayıtları sıfırlandı.', 'info');
+    }
+
+    function persistDailyLog() {
+      localStorage.setItem(STORAGE_KEYS.DAILY_LOG, JSON.stringify(appState.dailyLog));
+    }
+
+    function openGoalEditor() {
+      document.getElementById('goalDisplayBox').classList.add('hidden');
+      const editBox = document.getElementById('goalEditBox');
+      editBox.classList.remove('hidden');
+      const input = document.getElementById('dailyGoalInput');
+      input.value = appState.dailyGoal;
+      input.focus();
+    }
+
+    function saveDailyGoal() {
+      const input = document.getElementById('dailyGoalInput');
+      const newGoal = parseInt(input.value, 10);
+      if (isNaN(newGoal) || newGoal < 500 || newGoal > 12000) {
+        showToast('Lütfen 500 ile 12000 kcal arasında geçerli bir hedef girin.', 'warning');
+        return;
+      }
+      appState.dailyGoal = newGoal;
+      localStorage.setItem(STORAGE_KEYS.DAILY_GOAL, String(newGoal));
+      document.getElementById('goalEditBox').classList.add('hidden');
+      document.getElementById('goalDisplayBox').classList.remove('hidden');
+      renderDailyTracker();
+      showToast(`Günlük hedef ${newGoal} kcal olarak güncellendi.`, 'success');
+    }
+
+    function renderDailyTracker() {
+      const goal = appState.dailyGoal;
+      document.getElementById('dailyGoalDisplay').textContent = `${goal} kcal`;
+
+      const targetProteinG = Math.round((goal * 0.25) / 4);
+      const targetCarbsG = Math.round((goal * 0.45) / 4);
+      const targetFatG = Math.round((goal * 0.30) / 9);
+
+      const totals = appState.dailyLog.reduce(
+        (acc, entry) => {
+          acc.calories += Number(entry.calories) || 0;
+          acc.protein += Number(entry.protein_g) || 0;
+          acc.carbs += Number(entry.carbohydrates_total_g) || 0;
+          acc.fat += Number(entry.fat_total_g) || 0;
+          return acc;
+        },
+        { calories: 0, protein: 0, carbs: 0, fat: 0 }
+      );
+
+      const calRounded = Math.round(totals.calories);
+      const calPct = goal > 0 ? Math.round((calRounded / goal) * 100) : 0;
+      const calBarWidth = Math.min(100, calPct);
+
+      const calBar = document.getElementById('calorieProgressBar');
+      calBar.style.width = `${calBarWidth}%`;
+      if (calPct > 100) {
+        calBar.className = 'progress-fill h-full bg-rose-500 rounded-full';
+      } else {
+        calBar.className = 'progress-fill h-full bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full';
+      }
+
+      document.getElementById('dailyCalorieFraction').textContent = `${calRounded} / ${goal} kcal`;
+      document.getElementById('caloriePercentText').textContent = `%${calPct} tamamlandı`;
+
+      const remaining = goal - calRounded;
+      document.getElementById('calorieRemainingText').textContent =
+        remaining >= 0 ? `${remaining} kcal kaldı` : `${Math.abs(remaining)} kcal hedef aşıldı`;
+
+      const pPct = Math.min(100, Math.round((totals.protein / targetProteinG) * 100));
+      const cPct = Math.min(100, Math.round((totals.carbs / targetCarbsG) * 100));
+      const fPct = Math.min(100, Math.round((totals.fat / targetFatG) * 100));
+
+      document.getElementById('dailyProteinText').textContent = `${round1(totals.protein)}g / ${targetProteinG}g`;
+      document.getElementById('proteinProgressBar').style.width = `${pPct}%`;
+
+      document.getElementById('dailyCarbsText').textContent = `${round1(totals.carbs)}g / ${targetCarbsG}g`;
+      document.getElementById('carbsProgressBar').style.width = `${cPct}%`;
+
+      document.getElementById('dailyFatText').textContent = `${round1(totals.fat)}g / ${targetFatG}g`;
+      document.getElementById('fatProgressBar').style.width = `${fPct}%`;
+
+      const listEl = document.getElementById('dailyLogList');
+      const countEl = document.getElementById('loggedCount');
+      const clearBtn = document.getElementById('requestClearBtn');
+
+      countEl.textContent = appState.dailyLog.length;
+
+      if (appState.dailyLog.length === 0) {
+        clearBtn.classList.add('hidden');
+        document.getElementById('confirmClearGroup').classList.add('hidden');
+        listEl.innerHTML = `
+          <div class="text-center py-8 px-4 rounded-2xl border border-dashed border-slate-200 bg-slate-50/50">
+            <p class="text-xs font-bold text-slate-600">Bugün henüz öğün eklenmedi</p>
+            <p class="text-[11px] text-slate-400 mt-1">Analiz ettiğiniz öğünleri "+ Günlük Takibe Ekle" butonuyla buraya kaydedebilirsiniz.</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (document.getElementById('confirmClearGroup').classList.contains('hidden')) {
+        clearBtn.classList.remove('hidden');
+      }
+
+      listEl.innerHTML = appState.dailyLog
+        .map((entry) => {
+          const title = entry.name ? entry.name.charAt(0).toUpperCase() + entry.name.slice(1) : 'Besin';
+          return `
+            <div class="flex items-center justify-between gap-3 p-3 rounded-xl bg-slate-50/90 border border-slate-200/70 hover:border-cyan-200 transition-colors">
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center gap-2">
+                  <span class="text-xs font-extrabold text-slate-800 truncate">${escapeHtml(title)}</span>
+                  <span class="text-[10px] font-semibold text-slate-400 shrink-0">${entry.time || ''}</span>
+                </div>
+                <p class="text-[11px] text-slate-500 mt-0.5">
+                  ${entry.serving_size_g}g • P: ${entry.protein_g}g • K: ${entry.carbohydrates_total_g}g • Y: ${entry.fat_total_g}g
+                </p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <span class="text-xs font-extrabold text-cyan-800 bg-cyan-50 px-2.5 py-1 rounded-lg border border-cyan-200/70">
+                  ${entry.calories} kcal
+                </span>
+                <button
+                  type="button"
+                  onclick="removeLogItem('${entry.id}')"
+                  class="w-7 h-7 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 flex items-center justify-center transition-colors"
+                  title="Öğünü Sil"
+                >
+                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                  </svg>
+                </button>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
+    }
+
+    // =========================================================================
+    // 8. GELİŞTİRİCİ API İNCELEYİCİ & SÖZDİZİMİ VURGULAYICI
+    // =========================================================================
+    function toggleDevInspector(forceOpen = false) {
+      const body = document.getElementById('devInspectorBody');
+      const chevron = document.getElementById('devChevron');
+      const section = document.getElementById('devInspectorSection');
+
+      if (forceOpen) {
+        body.classList.remove('hidden');
+        chevron.style.transform = 'rotate(180deg)';
+        section.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        return;
+      }
+
+      const isHidden = body.classList.contains('hidden');
+      body.classList.toggle('hidden');
+      chevron.style.transform = isHidden ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function toggleInspectorKeyReveal() {
+      appState.revealInspectorKey = !appState.revealInspectorKey;
+      const btn = document.getElementById('toggleInspectorKeyBtn');
+      btn.textContent = appState.revealInspectorKey ? 'Anahtarı Gizle' : 'Anahtarı Göster';
+      renderInspectorHeaders();
+    }
+
+    function renderInspectorHeaders() {
+      const headersEl = document.getElementById('inspectorHeaders');
+      let keyDisplay = 'AKILLI_DEMO_MODU';
+
+      if (!appState.lastInspectorData.isDemo && appState.apiKey) {
+        if (appState.revealInspectorKey) {
+          keyDisplay = appState.apiKey;
+        } else {
+          keyDisplay =
+            appState.apiKey.length > 8
+              ? `${appState.apiKey.slice(0, 4)}••••••••${appState.apiKey.slice(-4)}`
+              : '••••••••';
+        }
+      }
+
+      headersEl.textContent = JSON.stringify(
+        {
+          Accept: 'application/json',
+          'X-Api-Key': keyDisplay,
+        },
+        null,
+        2
+      );
+    }
+
+    function syntaxHighlightJson(jsonObj) {
+      const raw = JSON.stringify(jsonObj, null, 2);
+      const escaped = escapeHtml(raw);
+      return escaped.replace(
+        /("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g,
+        (match) => {
+          let cls = 'text-amber-300'; // sayı
+          if (/^"/.test(match)) {
+            if (/:$/.test(match)) {
+              cls = 'text-cyan-300 font-semibold'; // JSON anahtarı
+            } else {
+              cls = 'text-emerald-300'; // metin değeri
+            }
+          } else if (/true|false/.test(match)) {
+            cls = 'text-indigo-300';
+          } else if (/null/.test(match)) {
+            cls = 'text-rose-300';
+          }
+          return `<span class="${cls}">${match}</span>`;
+        }
+      );
+    }
+
+    function updateDevInspector({ url, status, latencyMs, isDemo, rawJson }) {
+      appState.lastInspectorData = { url, status, latencyMs, isDemo, rawJson };
+      document.getElementById('inspectorUrl').textContent = url;
+      document.getElementById('inspectorStatusBadge').textContent = `${status} • ${latencyMs}ms`;
+      renderInspectorHeaders();
+      document.getElementById('inspectorJson').innerHTML = syntaxHighlightJson(rawJson);
+    }
+
+    function copyInspectorUrl() {
+      copyRawText(appState.lastInspectorData.url, 'HTTP GET URL panoya kopyalandı.');
+    }
+
+    function copyRawJson() {
+      const formatted = JSON.stringify(appState.lastInspectorData.rawJson, null, 2);
+      copyRawText(formatted, 'Ham JSON yanıtı panoya kopyalandı.');
+    }
+
+    // =========================================================================
+    // 9. YARDIMCI ARAÇLAR (PANOYA KOPYALA, BİLDİRİM TOAST, XSS KORUMASI)
+    // =========================================================================
+    function copyRawText(text, successMsg) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      textarea.style.opacity = '0';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        showToast(successMsg, 'success');
+      } catch (err) {
+        showToast('Kopyalama işlemi başarısız oldu.', 'warning');
+      }
+      document.body.removeChild(textarea);
+    }
+
+    function showToast(message, type = 'info') {
+      const container = document.getElementById('toastContainer');
+      const toast = document.createElement('div');
+
+      const styles = {
+        success: 'bg-slate-900 text-white border-emerald-500/50',
+        warning: 'bg-amber-950 text-amber-100 border-amber-500/50',
+        info: 'bg-slate-900 text-cyan-50 border-cyan-500/50',
+      };
+
+      const dotColors = {
+        success: 'bg-emerald-400',
+        warning: 'bg-amber-400',
+        info: 'bg-cyan-400',
+      };
+
+      toast.className = `pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border shadow-lg text-xs font-semibold transition-all duration-300 transform translate-y-2 opacity-0 ${
+        styles[type] || styles.info
+      }`;
+
+      toast.innerHTML = `
+        <span class="w-2 h-2 rounded-full shrink-0 ${dotColors[type] || dotColors.info}"></span>
+        <span class="flex-1">${escapeHtml(message)}</span>
+      `;
+
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+</body>
+</html>
